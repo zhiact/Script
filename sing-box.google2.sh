@@ -797,7 +797,7 @@ configure_cloudflare_tunnel() { # ... (与版本12.1基本一致) ...
     if [ "${cf_use_tunnel}" = "temp" ] || [ "${cf_use_tunnel}" = "fixed" ]; then
         printf "${YELLOW}输入用于 Cloudflare Tunnel 的域名 (例如 my.domain.com): ${PLAIN}"; read -r cf_domain
         if [ -z "${cf_domain}" ]; then if [ "${cf_use_tunnel}" = "fixed" ]; then error_exit "固定隧道域名不能为空。"; else info "临时隧道将尝试分配随机域名。"; cf_domain=""; fi
-        elif ! echo "${cf_domain}" | grep -Pq '^(?!-)[a-zA-Z0-9.-]{1,253}(?<!-)$' || ! echo "${cf_domain}" | grep -q '\.'; then error_exit "域名格式无效。"; fi
+        elif ! echo "${cf_domain}" | grep -Eq '^([a-zA-Z0-9](-?[a-zA-Z0-9])*\.)+[a-zA-Z]{2,}$' && [ "${#cf_domain}" -le 253 ]; then error_exit "域名格式无效。"; fi
         if [ -n "${cf_domain}" ]; then info "CF Tunnel 将用域名: ${cf_domain}"; fi
     fi
     success "Cloudflare Tunnel 配置选项已设定。"
