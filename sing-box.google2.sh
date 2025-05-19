@@ -222,7 +222,7 @@ manage_service() {
                         fi
 
                         # shellcheck disable=SC2016 # $ Gelenkten değişkenler burada kasıtlıdır
-                        read -r -d '' openrc_script_content <<EOF
+                        openrc_script_content=$(cat  <<EOF
 #!/sbin/openrc-run
 supervisor=supervise-daemon
 
@@ -239,6 +239,7 @@ depend() {
     use dns logger
 }
 EOF
+                        )
                         echo "${openrc_script_content}" | run_sudo tee "${service_script_path}" > /dev/null
                         run_sudo chmod 0755 "${service_script_path}"
                         success "已创建 OpenRC init.d 脚本: ${service_script_path}"
