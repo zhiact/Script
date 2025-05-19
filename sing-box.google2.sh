@@ -230,9 +230,10 @@ name="${service_name}"
 description="${desc}"
 command="${service_bin}"
 command_args="${cmd_args}"
-command_user="${service_name}:${service_name}" # 假设已创建同名用户和组
-pidfile="/run/\${RC_SVCNAME}.pid"
+pidfile="/var/run/\${RC_SVCNAME}.pid"
 supervise_daemon_args="--stdout /var/log/${service_name}.log --stderr /var/log/${service_name}.err"
+command_background=true
+
 
 depend() {
     need net
@@ -968,15 +969,67 @@ generate_output_links() {
 }
 
 # --- 卸载功能 ---
-uninstall_package() { # ... (与版本12.1基本一致) ...
-    info "开始执行卸载流程..."; local choice
-    local sb_openrc_script_path="/etc/init.d/${SB_SERVICE_NAME}"; local sb_openrc_confd_path="/etc/conf.d/${SB_SERVICE_NAME}"
+# (基本保持不变，服务卸载通过 manage_service 处理)
+uninstall_package() {
+    info "开始执行卸载流程..."
+    local choice
+    local sb_openrc_script_path="/etc/init.d/${SB_SERVICE_NAME}"
+    local sb_openrc_confd_path="/etc/conf.d/${SB_SERVICE_NAME}"
     local cf_openrc_script_path="/etc/init.d/${CF_SERVICE_NAME}"
-    info "停止 sing-box 服务..."; manage_service "stop" "${SB_SERVICE_NAME}" &>/dev/null || true
-    info "禁用/卸载 sing-box 服务..."; manage_service "uninstall" "${SB_SERVICE_NAME}" "${sb_openrc_script_path}" "${sb_openrc_confd_path}" &>/dev/null || true
-    if [ -f "${SB_INSTALL_PATH}" ]; then info "移除 sing-box: ${SB_INSTALL_PATH}"; run_sudo rm -f "${SB_INSTALL_PATH}"; else info "未找到 sing-box (${SB_INSTALL_PATH})。"; fi
-    if [ -d "${SB_CONFIG_DIR}" ]; then printf "${YELLOW}是否移除 sing-box 配置目录 ${SB_CONFIG_DIR}? [y/N]: ${PLAIN}"; read -r choice; if [[ "${choice,,}" == "y" ]]; then info "移除目录: ${SB_CONFIG_DIR}"; run_sudo rm -rf "${SB_CONFIG_DIR}"; success "目录已移除。"; else info "保留目录 ${SB_CONFIG_DIR}。"; fi; fi
-    if [ -f "${CF_INSTALL_PATH}" ]; then printf "${YELLOW}是否卸载 Cloudflare Tunnel (cloudflared)? [y/N]: ${PLAIN}"; read -r choice; if [[ "${choice,,}" == "y" ]]; then info "停止 CF Tunnel..."; manage_service "stop" "${CF_SERVICE_NAME}" &>/dev/null || true; info "禁用/卸载 CF Tunnel..."; manage_service "uninstall" "${CF_SERVICE_NAME}" "${cf_openrc_script_path}"; info "移除 cloudflared: ${CF_INSTALL_PATH}"; run_sudo rm -f "${CF_INSTALL_PATH}"; if [ -d "${CF_CONFIG_DIR}" ]; then printf "${YELLOW}是否移除 cloudflared 配置目录 ${CF_CONFIG_DIR}? [y/N]: ${PLAIN}"; read -r choice_cf_config; if [[ "${choice_cf_config,,}" == "y" ]]; then info "移除目录: ${CF_CONFIG_DIR}"; run_sudo rm -rf "${CF_CONFIG_DIR}"; success "目录已移除。"; else info "保留目录 ${CF_CONFIG_DIR}。"; fi; fi; info "CF Tunnel 卸载尝试完成。"; else info "跳过卸载 CF Tunnel。"; fi; fi
+    # local cf_openrc_confd_path="/etc/conf.d/${CF_SERVICE_NAME}" # cloudflared 的 conf.d 通常较少
+
+    info "正在停止 sing-box 服务..."
+    manage_service "stop" "${SB_SERVICE_NAME}" &>/dev/null || true
+    info "正在禁用/卸载 sing-box 服务..."
+    manage_service "uninstall" "${SB_SERVICE_NAME}" "${sb_openrc_script_path}" "${sb_openrc_confd_path}" &>/dev/null || true
+
+    if [ -f "${SB_INSTALL_PATH}" ]; then
+        info "正在移除 sing-box 二进制文件: ${SB_INSTALL_PATH}"
+        run_sudo rm -f "${SB_INSTALL_PATH}"
+    else
+        info "未找到 sing-box 二进制文件 (${SB_INSTALL_PATH})，跳过移除。"
+    fi
+
+    if [ -d "${SB_CONFIG_DIR}" ]; then
+        printf "${YELLOW}是否移除 sing-box 配置文件目录 ${SB_CONFIG_DIR} (包含 config.json 和日志)? [y/N]: ${PLAIN}"
+        read -r choice
+        if [[ "${choice,,}" == "y" ]] || [[ "${choice,,}" == "yes" ]]; then
+            info "正在移除 sing-box 配置目录: ${SB_CONFIG_DIR}"
+            run_sudo rm -rf "${SB_CONFIG_DIR}"
+            success "sing-box 配置目录已移除。"
+        else
+            info "保留 sing-box 配置目录 ${SB_CONFIG_DIR}。"
+        fi
+    fi
+
+    if [ -f "${CF_INSTALL_PATH}" ]; then
+        printf "${YELLOW}是否同时卸载 Cloudflare Tunnel (cloudflared)? [y/N]: ${PLAIN}"
+        read -r choice
+        if [[ "${choice,,}" == "y" ]] || [[ "${choice,,}" == "yes" ]]; then
+            info "正在停止 Cloudflare Tunnel 服务..."
+            manage_service "stop" "${CF_SERVICE_NAME}" &>/dev/null || true
+            info "正在禁用/卸载 Cloudflare Tunnel 服务..."
+            manage_service "uninstall" "${CF_SERVICE_NAME}" "${cf_openrc_script_path}" # CF 的 conf.d 不由此脚本管理
+            
+            info "正在移除 cloudflared 二进制文件: ${CF_INSTALL_PATH}"
+            run_sudo rm -f "${CF_INSTALL_PATH}"
+
+            if [ -d "${CF_CONFIG_DIR}" ]; then
+                 printf "${YELLOW}是否移除 cloudflared 配置文件目录 ${CF_CONFIG_DIR} (可能包含固定隧道的配置和凭据)? [y/N]: ${PLAIN}"
+                 read -r choice_cf_config
+                 if [[ "${choice_cf_config,,}" == "y" ]] || [[ "${choice_cf_config,,}" == "yes" ]]; then
+                    info "正在移除 cloudflared 配置目录: ${CF_CONFIG_DIR}"
+                    run_sudo rm -rf "${CF_CONFIG_DIR}"
+                    success "cloudflared 配置目录已移除。"
+                 else
+                    info "保留 cloudflared 配置目录 ${CF_CONFIG_DIR}。"
+                 fi
+            fi
+            info "Cloudflare Tunnel 卸载尝试完成。您可能还需要在 Cloudflare Dashboard 中手动清理隧道和DNS记录。"
+        else
+            info "跳过卸载 Cloudflare Tunnel。"
+        fi
+    fi
     success "卸载流程已完成。"
 }
 
@@ -1145,7 +1198,7 @@ main() {
     if [ "$#" -gt 0 ]; then 
         case "$1" in
             uninstall|remove|delete) run_sudo echo "卸载操作需sudo..."; uninstall_package; exit 0 ;;
-            help|--help|-h) echo "用法: $0 [命令]\n命令:\n  (无)        执行安装流程。\n  uninstall   卸载。\n  help        显示帮助。"; exit 0 ;;
+            help|--help|-h) printf "用法: $0 [命令]\n命令:\n  (无)        执行安装流程。\n  uninstall   卸载。\n  help        显示帮助。"; exit 0 ;;
             *) error_exit "未知参数: '$1'. 使用 '$0 help'." ;;
         esac
     fi
