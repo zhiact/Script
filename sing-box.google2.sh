@@ -291,7 +291,7 @@ configure_sing_box() {
     info "正在生成 sing-box ${selected_protocol} 配置文件: ${SB_CONFIG_FILE}"
     
     local inbound_json_string="" # 用于存储具体协议的inbound JSON
-
+    info "inbound_json_string的值：$inbound_json_string"
     case "${selected_protocol}" in
         vmess_ws)
             inbound_json_string=$(jq -n \
