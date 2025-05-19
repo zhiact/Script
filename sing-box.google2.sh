@@ -388,12 +388,12 @@ configure_sing_box() {
             if [ -z "${reality_private_key}" ] || [ -z "${reality_public_key}" ]; then
                 error_exit "Reality 密钥对获取/输入失败。"
             fi
-
+            # 服务端通常不需要配置 short_id，客户端使用\
             inbound_json_string=$(jq -n \
                 --arg uuid "${sb_uuid}" --argjson port "${sb_port}" \
                 --arg reality_sni "${user_domain_sni}" \
                 --arg private_key "${reality_private_key}" \
-                # --arg short_id "${reality_short_id}" # 服务端通常不需要配置 short_id，客户端使用
+                --arg short_id "${reality_short_id}" \
                 '{
                     type: "vless", tag: "vless-reality-in", listen: "::", listen_port: $port,
                     users: [ { uuid: $uuid, flow: "xtls-rprx-vision" } ],
@@ -411,12 +411,13 @@ configure_sing_box() {
                 }')
             ;;
         hysteria2)
+        # Hysteria2 的 SNI 主要用于客户端链接和服务器TLS配置
             inbound_json_string=$(jq -n \
                 --argjson port "${sb_port}" \
                 --arg password "${hysteria2_password}" \
                 --argjson up_mbps "${hysteria2_up_mbps}" \
                 --argjson down_mbps "${hysteria2_down_mbps}" \
-                # --arg sni "${user_domain_sni}" # Hysteria2 的 SNI 主要用于客户端链接和服务器TLS配置
+                --arg sni "${user_domain_sni}" \
                 '{
                     type: "hysteria2", tag: "hysteria2-in", listen: "::", listen_port: $port,
                     up_mbps: $up_mbps, down_mbps: $down_mbps,
