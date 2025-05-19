@@ -1194,7 +1194,8 @@ main() {
     echo -e "作者: (原始脚本作者 + AI 改进与兼容性增强)"
     echo -e "${BLUE}===============================================================${PLAIN}"
     echo
-
+    mkdir -p "${TMP_DIR}"; echo "Installer Log $(date) - ${SCRIPT_VERSION}" > "${LOG_FILE}"
+    info "安装日志将保存在: ${LOG_FILE}"
     if [ "$#" -gt 0 ]; then 
         case "$1" in
             uninstall|remove|delete) run_sudo echo "卸载操作需sudo..."; uninstall_package; exit 0 ;;
@@ -1205,8 +1206,7 @@ main() {
     run_sudo echo "安装操作需sudo..."
     
     # 修改后的主安装流程调用顺序
-    mkdir -p "${TMP_DIR}"; echo "Installer Log $(date) - ${SCRIPT_VERSION}" > "${LOG_FILE}"
-    info "安装日志将保存在: ${LOG_FILE}"
+
     detect_environment; detect_init_system; check_dependencies
     
     select_protocol                # 1. 用户选择协议
