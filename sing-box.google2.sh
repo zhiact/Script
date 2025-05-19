@@ -304,23 +304,86 @@ configure_sing_box() {
                 '{type: "vless", tag: "vless-ws-in", listen: "::", listen_port: $port, users: [ { uuid: $uuid, flow: "" } ], transport: {type: "ws", path: $path, early_data_header_name: "Sec-WebSocket-Protocol"}}')
             ;;
         vless_reality_tcp_vision)
-            info "为 VLESS+Reality 生成密钥对..."
-            local keypair_output
-            if ! keypair_output=$(run_sudo "${SB_INSTALL_PATH}" utility reality-keypair)&& ! keypair_output=$(run_sudo "${SB_INSTALL_PATH}" generate reality-keypair); then # 早期版本可能是 generate reality-keypair
-                 warn "自动生成 Reality 密钥对失败。请确保 sing-box 版本支持此命令，或手动提供。"
-                 printf "${YELLOW}请输入 Reality Private Key: ${PLAIN}"; read -r reality_private_key
-                 printf "${YELLOW}请输入 Reality Public Key: ${PLAIN}"; read -r reality_public_key
-                 # short_id 通常由 private_key 生成，这里简化为用户输入或留空由客户端处理
-                 printf "${YELLOW}请输入 Reality Short ID (可选，通常8位十六进制): ${PLAIN}"; read -r reality_short_id
+            # --- Reality 密钥对生成逻辑 ---
+            info "为 VLESS+Reality 生成或获取密钥对..."
+            # 初始化将要设置的变量
+            reality_private_key=""
+            reality_public_key=""
+            reality_short_id="" # short_id 的处理稍后进行
+            local keypair_generated_successfully=false
+            local keypair_output_buffer="" # 用于临时存储命令的输出
+
+            # 尝试1: 使用 "utility reality-keypair" (sing-box 1.9+ 推荐)
+            info "尝试使用 'utility reality-keypair' 命令 (sing-box 1.9+)..."
+            # 将标准错误重定向到临时文件，以便后续查看具体错误
+            if keypair_output_buffer=$(run_sudo "${SB_INSTALL_PATH}" utility reality-keypair 2> "${TMP_DIR}/reality_cmd_err.txt"); then
+                # 命令执行成功 (退出码为0)
+                if echo "${keypair_output_buffer}" | grep -q 'PrivateKey' && echo "${keypair_output_buffer}" | grep -q 'PublicKey'; then
+                    info "通过 'utility reality-keypair' 成功生成密钥对。"
+                    reality_private_key=$(echo "${keypair_output_buffer}" | grep 'PrivateKey' | awk '{print $2}' | tr -d '"')
+                    reality_public_key=$(echo "${keypair_output_buffer}" | grep 'PublicKey' | awk '{print $2}' | tr -d '"')
+                    keypair_generated_successfully=true
+                else
+                    warn "'utility reality-keypair' 命令执行成功，但输出格式不符合预期 (未找到 PrivateKey 或 PublicKey)。"
+                    warn "命令输出: ${keypair_output_buffer}"
+                    warn "命令错误流: $(cat "${TMP_DIR}/reality_cmd_err.txt" 2>/dev/null || echo '无')"
+                fi
             else
-                reality_private_key=$(echo "${keypair_output}" | grep 'PrivateKey' | awk '{print $2}' | tr -d '"')
-                reality_public_key=$(echo "${keypair_output}" | grep 'PublicKey' | awk '{print $2}' | tr -d '"')
-                # sing-box 1.9+ `utility reality-keypair` 可能不直接输出 short_id，客户端通常用公钥生成
-                # 如果需要 short_id 且工具不输出，可以提示用户，或客户端自行处理
-                # 暂时不强制服务端配置 short_id，让客户端根据公钥选择
-                info "Reality Private Key: ${reality_private_key}"
-                info "Reality Public Key: ${reality_public_key}"
-                # info "Reality Short ID (客户端需要): 由公钥派生或自定义"
+                # 命令执行失败 (退出码非0)
+                warn "'utility reality-keypair' 命令执行失败或不可用。"
+                warn "错误信息: $(cat "${TMP_DIR}/reality_cmd_err.txt" 2>/dev/null || echo '无详细错误信息')"
+            fi
+            rm -f "${TMP_DIR}/reality_cmd_err.txt" # 清理临时错误文件
+
+            # 尝试2: 使用 "generate reality-keypair" (旧版 sing-box)，仅当尝试1未成功时
+            if ! ${keypair_generated_successfully}; then
+                info "尝试使用 'generate reality-keypair' 命令 (旧版 sing-box)..."
+                if keypair_output_buffer=$(run_sudo "${SB_INSTALL_PATH}" generate reality-keypair 2> "${TMP_DIR}/reality_cmd_err.txt"); then
+                    # 命令执行成功
+                    if echo "${keypair_output_buffer}" | grep -q 'PrivateKey' && echo "${keypair_output_buffer}" | grep -q 'PublicKey'; then
+                        info "通过 'generate reality-keypair' 成功生成密钥对。"
+                        reality_private_key=$(echo "${keypair_output_buffer}" | grep 'PrivateKey' | awk '{print $2}' | tr -d '"')
+                        reality_public_key=$(echo "${keypair_output_buffer}" | grep 'PublicKey' | awk '{print $2}' | tr -d '"')
+                        keypair_generated_successfully=true
+                    else
+                        warn "'generate reality-keypair' 命令执行成功，但输出格式不符合预期。"
+                        warn "命令输出: ${keypair_output_buffer}"
+                        warn "命令错误流: $(cat "${TMP_DIR}/reality_cmd_err.txt" 2>/dev/null || echo '无')"
+                    fi
+                else
+                    # 命令执行失败
+                    warn "'generate reality-keypair' 命令执行失败或不可用。"
+                    warn "错误信息: $(cat "${TMP_DIR}/reality_cmd_err.txt" 2>/dev/null || echo '无详细错误信息')"
+                fi
+                rm -f "${TMP_DIR}/reality_cmd_err.txt" # 清理临时错误文件
+            fi
+
+            # 根据自动生成是否成功，决定是否提示用户手动输入
+            if ${keypair_generated_successfully}; then
+                # 为了安全，不在日志中直接打印私钥，但可以打印公钥和提示
+                info "Reality 公钥已自动生成: ${reality_public_key}"
+                info "Reality 私钥已自动生成 (为安全不在此显示)。"
+                # 对于 short_id 的处理：
+                # sing-box 1.9+ 的 `utility reality-keypair` 可能不直接输出 short_id。
+                # short_id 通常由客户端根据公钥选择或自动派生，或者用户可以指定一个。
+                # 服务端配置通常不需要 short_id，但客户端链接中会使用。
+                printf "${YELLOW}Reality Short ID (可选，客户端使用，通常8位十六进制，可由公钥派生或自定义): ${PLAIN}"
+                read -r reality_short_id_input # 读取用户可能输入的 short_id
+                if [ -n "${reality_short_id_input}" ]; then
+                    reality_short_id="${reality_short_id_input}"
+                    info "将使用用户提供的 Reality Short ID: ${reality_short_id}"
+                else
+                    # 如果用户未输入，可以尝试从公钥生成一个示例 (可选，且需要 xxd 和 sha256sum)
+                    # 或者直接将其留空，让客户端处理
+                    reality_short_id="" # 默认为空
+                    info "未提供 Short ID，客户端将自行处理或不使用。"
+                fi
+            else
+                # 两个自动生成命令都失败了，提示用户手动输入
+                warn "自动生成 Reality 密钥对失败。请手动提供以下信息:"
+                printf "${YELLOW}请输入 Reality Private Key: ${PLAIN}"; read -r reality_private_key
+                printf "${YELLOW}请输入 Reality Public Key: ${PLAIN}"; read -r reality_public_key
+                printf "${YELLOW}请输入 Reality Short ID (通常为8位十六进制字符): ${PLAIN}"; read -r reality_short_id
             fi
             if [ -z "${reality_private_key}" ] || [ -z "${reality_public_key}" ]; then
                 error_exit "Reality 密钥对获取/输入失败。"
