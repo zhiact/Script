@@ -42,7 +42,7 @@ server_ip_address=""   # 服务器IP地址，用于直连协议的链接生成
 server_cert_path=""
 server_key_path=""
 
-
+force_cf_choice=""
 cf_use_tunnel="" # "temp", "fixed", "no"
 cf_tunnel_token=""
 cf_domain=""
@@ -778,7 +778,6 @@ configure_cloudflare_tunnel() { # ... (与版本12.1基本一致) ...
             info "您选择的协议 (${selected_protocol}) 通常用于直连服务器以获得最佳性能和特性。"
             info "一般不推荐与 Cloudflare Tunnel (CDN) 配合使用，因其可能影响 Reality 或 Hysteria2 的效果。"
             printf "${YELLOW}尽管如此，您仍然希望配置 Cloudflare Tunnel 吗? (如果您清楚自己在做什么) [y/N]: ${PLAIN}"
-            local force_cf_choice
             read -r force_cf_choice
             if ! [[ "${force_cf_choice,,}" == "y" || "${force_cf_choice,,}" == "yes" ]]; then
                 info "用户选择不为 ${selected_protocol} 配置 Cloudflare Tunnel。"
