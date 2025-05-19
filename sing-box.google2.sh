@@ -69,7 +69,7 @@ CLEANUP() { # ... (与版本12.1一致，此处省略以减少篇幅) ...
     if [ -f "${CF_TEMP_TUNNEL_PID_FILE}" ] && [ -s "${CF_TEMP_TUNNEL_PID_FILE}" ]; then
         local pid
         pid=$(cat "${CF_TEMP_TUNNEL_PID_FILE}")
-        grep -q "^\s*$(cat "${pid}")\s"; then 
+        if grep -q "^\s*$pid\s"; then 
             info "正在停止临时的 Cloudflare tunnel (PID: ${pid})..."
             run_sudo kill "${pid}" &>/dev/null || true
         fi
