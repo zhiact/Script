@@ -306,7 +306,7 @@ configure_sing_box() {
         vless_reality_tcp_vision)
             info "为 VLESS+Reality 生成密钥对..."
             local keypair_output
-            if ! keypair_output=$(run_sudo "${SB_INSTALL_PATH}" utility reality-keypair); then # 早期版本可能是 generate reality-keypair
+            if ! keypair_output=$(run_sudo "${SB_INSTALL_PATH}" utility reality-keypair)&& ! keypair_output=$(run_sudo "${SB_INSTALL_PATH}" generate reality-keypair); then # 早期版本可能是 generate reality-keypair
                  warn "自动生成 Reality 密钥对失败。请确保 sing-box 版本支持此命令，或手动提供。"
                  printf "${YELLOW}请输入 Reality Private Key: ${PLAIN}"; read -r reality_private_key
                  printf "${YELLOW}请输入 Reality Public Key: ${PLAIN}"; read -r reality_public_key
