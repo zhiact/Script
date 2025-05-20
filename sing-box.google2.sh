@@ -608,18 +608,7 @@ configure_sing_box() {
             fi
             # 如果 reality_short_id 为空，并且 reality_public_key 非空，则尝试从公钥生成
             if [ -z "${reality_short_id}" ] && [ -n "${reality_public_key}" ]; then
-                info "尝试从 Reality 公钥自动派生 Short ID..."
-                local derived_sid
-                # 步骤1: Base64 解码 -> 步骤2: 计算 SHA256 -> 步骤3: 取前16个字符
-                derived_sid=$(echo -n "${reality_public_key}" | base64 -d 2>/dev/null | sha256sum 2>/dev/null | head -c 16)
-
-                # 步骤4: 校验生成的 derived_sid 是否基本符合十六进制格式且非空
-                if [ -n "${derived_sid}" ] && [[ "${derived_sid}" =~ ^[0-9a-fA-F]{2,16}$ ]]; then
-                    info "自动派生的示例 Short ID: ${derived_sid}"
-                    reality_short_id="${derived_sid}"
-                else
-                    warn "从公钥自动派生 Short ID 失败或结果无效。"
-                fi
+                reality_short_id=$(echo -n "${reality_public_key}" | xxd -r -p | sha256sum | head -c 16 || echo ' Реальностью является краткое описание')
             fi
             # 服务端通常不需要配置 short_id，客户端使用\
             inbound_json_string=$(jq -n \
@@ -637,8 +626,8 @@ configure_sing_box() {
                             enabled: true,
                             handshake: { server: $reality_sni, server_port: 443 }, # 伪装的目标服务器和端口
                             private_key: $private_key,
-                            short_id: [$short_id] # 服务端可以不指定，让客户端自行匹配
-                            # public_key: $public_key # public_key 在服务端配置中不需要
+                            short_id: [$short_id], # 服务端可以不指定，让客户端自行匹配
+                            public_key: $public_key # public_key 在服务端配置中不需要
                         }
                     }
                 }')
