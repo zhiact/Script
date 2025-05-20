@@ -67,23 +67,22 @@ error_exit() { _log "${RED}ERROR  " "$1" >&2; exit 1; }
 CLEANUP() { # ... (与版本12.1一致，此处省略以减少篇幅) ...
     info "执行清理操作..."
     exit_code=$?
-    info "exit_code:$exit_code"
     case "$EXIT_REASON" in
         "normal")
             if [ $exit_code -eq 0 ]; then
                 echo "✅ 正常退出（退出码 0）"
             else
                 echo "❌ 异常退出（退出码 $exit_code）"
-                close_tmptunnel();
+                close_tmptunnel
             fi
             ;;
         "sigint")
             echo "⛔ 被 Ctrl+C 中断（SIGINT）"
-            close_tmptunnel();
+            close_tmptunnel
             ;;
         *)
             echo "⚠️ 其他退出原因：$EXIT_REASON"
-            close_tmptunnel();
+            close_tmptunnel
             ;;
     esac
     if [ -d "${TMP_DIR}" ]; then rm -rf "${TMP_DIR}"; info "临时目录 ${TMP_DIR} 已删除。"; fi
