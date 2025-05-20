@@ -68,7 +68,29 @@ CLEANUP() { # ... (与版本12.1一致，此处省略以减少篇幅) ...
     info "执行清理操作..."
     exit_code=$?
     info "exit_code:$exit_code"
-    if [ -f "${CF_TEMP_TUNNEL_PID_FILE}" ] && [ -s "${CF_TEMP_TUNNEL_PID_FILE}" ] && ! [ $exit_code -eq 0 ]; then
+    case "$EXIT_REASON" in
+        "normal")
+            if [ $exit_code -eq 0 ]; then
+                echo "✅ 正常退出（退出码 0）"
+            else
+                echo "❌ 异常退出（退出码 $exit_code）"
+                close_tmptunnel();
+            fi
+            ;;
+        "sigint")
+            echo "⛔ 被 Ctrl+C 中断（SIGINT）"
+            close_tmptunnel();
+            ;;
+        *)
+            echo "⚠️ 其他退出原因：$EXIT_REASON"
+            close_tmptunnel();
+            ;;
+    esac
+    if [ -d "${TMP_DIR}" ]; then rm -rf "${TMP_DIR}"; info "临时目录 ${TMP_DIR} 已删除。"; fi
+
+}
+close_tmptunnel(){
+    if [ -f "${CF_TEMP_TUNNEL_PID_FILE}" ] && [ -s "${CF_TEMP_TUNNEL_PID_FILE}" ] ; then
         local pid
         pid=$(cat "${CF_TEMP_TUNNEL_PID_FILE}")
         if ps | grep -q "^\s*$pid\s"; then 
@@ -77,7 +99,6 @@ CLEANUP() { # ... (与版本12.1一致，此处省略以减少篇幅) ...
         fi
         rm -f "${CF_TEMP_TUNNEL_PID_FILE}"
     fi
-    if [ -d "${TMP_DIR}" ]; then rm -rf "${TMP_DIR}"; info "临时目录 ${TMP_DIR} 已删除。"; fi
 }
 trap CLEANUP EXIT SIGINT SIGTERM
 
