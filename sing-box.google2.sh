@@ -63,25 +63,37 @@ success() { _log "${GREEN}SUCCESS" "$1"; }
 warn() { _log "${YELLOW}WARNING" "$1" >&2; }
 error_exit() { _log "${RED}ERROR  " "$1" >&2; exit 1; }
 
+# 1. 预设退出原因
+EXIT_REASON="EXIT"
+# 2. 捕获 SIGINT（Ctrl+C），并设置退出码为 130（128+2）
+trap 'EXIT_REASON="SIGINT"; exit 130' SIGINT
+# 3. 捕获 SIGTERM（kill），并设置退出码为 143（128+15）
+trap 'EXIT_REASON="SIGTERM"; exit 143' SIGTERM
+# 4. 捕获任何脚本退出（无论正常、exit n 还是因错误），执行 CLEANUP
+trap 'CLEANUP' EXIT
 # --- 清理函数 ---
 CLEANUP() { # ... (与版本12.1一致，此处省略以减少篇幅) ...
     info "执行清理操作..."
     exit_code=$?
     case "$EXIT_REASON" in
-        "normal")
+        "SIGINT")
+            echo "⛔ 被 Ctrl+C 中断（SIGINT），退出码：$exit_code"
+            close_tmptunnel
+            ;;
+        "SIGTERM")
+            echo "🚫 被 kill （SIGTERM），退出码：$exit_code"
+            close_tmptunnel
+            ;;
+        "EXIT")
             if [ $exit_code -eq 0 ]; then
-                echo "✅ 正常退出（退出码 0）"
+                echo "✅ 正常退出（EXIT，退出码 0）"
             else
-                echo "❌ 异常退出（退出码 $exit_code）"
+                echo "❌ 异常退出（EXIT，退出码 $exit_code）"
                 close_tmptunnel
             fi
             ;;
-        "sigint")
-            echo "⛔ 被 Ctrl+C 中断（SIGINT）"
-            close_tmptunnel
-            ;;
         *)
-            echo "⚠️ 其他退出原因：$EXIT_REASON"
+            echo "⚠️ 未知退出原因：$EXIT_REASON，退出码：$exit_code"
             close_tmptunnel
             ;;
     esac
@@ -99,7 +111,6 @@ close_tmptunnel(){
         rm -f "${CF_TEMP_TUNNEL_PID_FILE}"
     fi
 }
-trap CLEANUP EXIT SIGINT SIGTERM
 
 # --- Sudo 权限执行封装 ---
 run_sudo() { # ... (与版本12.1一致) ...
