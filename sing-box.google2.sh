@@ -67,6 +67,7 @@ error_exit() { _log "${RED}ERROR  " "$1" >&2; exit 1; }
 CLEANUP() { # ... (与版本12.1一致，此处省略以减少篇幅) ...
     info "执行清理操作..."
     exit_code=$?
+    info "exit_code:$exit_code"
     if [ -f "${CF_TEMP_TUNNEL_PID_FILE}" ] && [ -s "${CF_TEMP_TUNNEL_PID_FILE}" ] && ! [ $exit_code -eq 0 ]; then
         local pid
         pid=$(cat "${CF_TEMP_TUNNEL_PID_FILE}")
