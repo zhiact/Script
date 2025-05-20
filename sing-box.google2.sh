@@ -607,7 +607,7 @@ configure_sing_box() {
                 error_exit "Reality 密钥对获取/输入失败。"
             fi
             # 如果 reality_short_id 为空，并且 reality_public_key 非空，则尝试从公钥生成
-            if [ -z "${sid_for_link}" ] && [ -n "${reality_public_key}" ]; then
+            if [ -z "${reality_short_id}" ] && [ -n "${reality_public_key}" ]; then
                 info "尝试从 Reality 公钥自动派生 Short ID..."
                 local derived_sid
                 # 步骤1: Base64 解码 -> 步骤2: 计算 SHA256 -> 步骤3: 取前16个字符
@@ -616,13 +616,9 @@ configure_sing_box() {
                 # 步骤4: 校验生成的 derived_sid 是否基本符合十六进制格式且非空
                 if [ -n "${derived_sid}" ] && [[ "${derived_sid}" =~ ^[0-9a-fA-F]{2,16}$ ]]; then
                     info "自动派生的示例 Short ID: ${derived_sid}"
-                    sid_for_link="${derived_sid}"
-                    # 可以根据需要进一步截断，例如只取前8个字符 (4字节)
-                    # sid_for_link=$(echo "${derived_sid}" | head -c 8)
+                    reality_short_id="${derived_sid}"
                 else
                     warn "从公钥自动派生 Short ID 失败或结果无效。"
-                    # sid_for_link 保持为空，让客户端处理，或设置一个极简默认值
-                    # sid_for_link="01" 
                 fi
             fi
             # 服务端通常不需要配置 short_id，客户端使用\
