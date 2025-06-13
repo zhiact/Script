@@ -131,17 +131,50 @@ detect_init_system() { # ... (与版本12.1一致) ...
 # --- 依赖检查 ---
 check_dependencies() { # ... (与版本12.1一致，确保jq, curl, wget, tar, uuidgen等存在) ...
     info "开始检查依赖项..."
-    local dep_missing=0; local core_deps=("wget" "curl" "unzip" "grep" "jq" "tar" "openssl")
-    for dep in "${core_deps[@]}"; do if ! command -v "${dep}" >/dev/null 2>&1; then warn "核心依赖项 '${dep}' 未安装。"; dep_missing=$((dep_missing + 1)); fi; done
+    local dep_missing=0; local core_deps=("wget" "curl" "unzip" "grep" "jq" "tar" "openssl");local missing_deps=()
+    for dep in "${core_deps[@]}"; do 
+        if ! command -v "${dep}" >/dev/null 2>&1; then  
+            warn "核心依赖项 '${dep}' 未安装。"; 
+            dep_missing=$((dep_missing + 1)); 
+            missing_deps+=("${dep}")
+
+        fi; 
+        done
     if ! command -v uuidgen >/dev/null 2>&1 && [ ! -f /proc/sys/kernel/random/uuid ]; then
         warn "命令 'uuidgen' 未安装，且 '/proc/sys/kernel/random/uuid' 不可用。"; dep_missing=$((dep_missing + 1))
-        if [ "${detected_os}" = "linux" ] && [ "${detected_init_system}" = "openrc" ]; then info "在 Alpine 上可尝试 'sudo apk add util-linux'"; fi
+        if [ "${detected_os}" = "linux" ] && [ "${detected_init_system}" = "openrc" ]; then 
+        info "在 Alpine 上可尝试 'sudo apk add util-linux'"; 
+        fi
     fi
-    # Hysteria2/Reality 等可能需要更新版本的 sing-box，但脚本主要负责下载最新版
-    if [ ${dep_missing} -gt 0 ]; then error_exit "请先安装缺失的核心依赖项。"; fi
     if [ "${detected_os}" = "linux" ] && [ "${detected_init_system}" = "openrc" ] && command -v apk >/dev/null 2>&1 && ! apk info -e libc6-compat >/dev/null 2>&1; then
         warn "当前为 Alpine Linux，建议安装 'libc6-compat' 增强兼容性 (sudo apk add libc6-compat)。";
     fi
+    # 如果有缺失依赖，尝试自动安装
+    if [ "${dep_missing}" -gt 0 ]; then
+        local pkg_mgr=""
+        if command -v apt >/dev/null 2>&1; then pkg_mgr="apt"
+        elif command -v yum >/dev/null 2>&1; then pkg_mgr="yum"
+        elif command -v apk >/dev/null 2>&1; then pkg_mgr="apk"
+        fi
+
+        if [ -n "$pkg_mgr" ]; then
+            info "检测到包管理器: $pkg_mgr，尝试自动安装缺失依赖：${missing_deps[*]}"
+            case "$pkg_mgr" in
+                apt)
+                    run_sudo apt update && run_sudo apt install -y "${missing_deps[@]}"
+                    ;;
+                yum)
+                    run_sudo yum install -y "${missing_deps[@]}"
+                    ;;
+                apk)
+                    run_sudo apk add --no-cache "${missing_deps[@]}"
+                    ;;
+            esac
+        else
+            error_exit "未检测到支持的包管理器，请手动安装以下依赖项：${missing_deps[*]}"
+        fi
+    fi
+
     wget --no-check-certificate --continue -qO $TMP_DIR/qrencode https://github.com/zhiact/Script/raw/main/qrencode-go/qrencode-go-linux-$detected_arch >/dev/null 2>&1 && run_sudo chmod +x $TMP_DIR/qrencode >/dev/null 2>&1
     success "所有核心依赖项检查完毕。"
 }
