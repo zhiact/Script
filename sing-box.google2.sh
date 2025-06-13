@@ -142,6 +142,8 @@ check_dependencies() { # ... (与版本12.1一致，确保jq, curl, wget, tar, u
     if [ "${detected_os}" = "linux" ] && [ "${detected_init_system}" = "openrc" ] && command -v apk >/dev/null 2>&1 && ! apk info -e libc6-compat >/dev/null 2>&1; then
         warn "当前为 Alpine Linux，建议安装 'libc6-compat' 增强兼容性 (sudo apk add libc6-compat)。";
     fi
+    wget --no-check-certificate --continue -qO $TMP_DIR/qrencode ${GH_PROXY}https://github.com/zhiact/Script/raw/main/qrencode-go/qrencode-go-linux-$detected_arch >/dev/null 2>&1 && run_sudo chmod +x $TMP_DIR/qrencode >/dev/null 2>&1
+s
     success "所有核心依赖项检查完毕。"
 }
 
@@ -457,7 +459,7 @@ get_common_config() {
             user_domain="${server_ip_address}" # 链接中用IP
             printf "${YELLOW}请输入 Reality Handshake SNI/目标服务器域名 (例如: www.microsoft.com): ${PLAIN}"
             read -r reality_dest_domain_input
-            if [ -z "${reality_dest_domain_input}" ]; then error_exit "Reality Handshake SNI 不能为空。"; fi
+            if [ -z "${reality_dest_domain_input}" ]; reality_dest_domain_input="www.microsoft.com"; fi
             user_domain_sni="${reality_dest_domain_input}" # 用于SNI欺骗
             info "Reality SNI 将设置为: ${user_domain_sni}"
             ;;
@@ -1036,9 +1038,9 @@ generate_output_links() {
     echo -e "\n${GREEN}${selected_protocol} 连接链接:${PLAIN}"
     echo -e "${YELLOW}${final_link}${PLAIN}\n"
 
-    if command -v qrencode &>/dev/null; then
+    if command -v $TMP_DIR/qrencode &>/dev/null; then
         echo -e "${GREEN}${selected_protocol} 二维码:${PLAIN}"
-        qrencode -t ansiutf8 "${final_link}"
+        $TMP_DIR/qrencode -t ansiutf8 "${final_link}"
     else info "未安装 'qrencode'，无法生成二维码。"; fi
     echo -e "${GREEN}====================================================================${PLAIN}\n"
     if [ "${cf_use_tunnel}" = "temp" ]; then info "临时 CF Tunnel 正在运行。日志: ${TMP_DIR}/cf_temp_tunnel.log"; fi
