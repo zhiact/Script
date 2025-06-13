@@ -627,7 +627,7 @@ configure_sing_box() {
                             enabled: true,
                             handshake: { server: $reality_sni, server_port: 443 }, # 伪装的目标服务器和端口
                             private_key: $private_key,
-                            short_id: [$short_id], # 服务端可以不指定，让客户端自行匹配
+                            short_id: [$short_id] # 服务端可以不指定，让客户端自行匹配
                             #public_key: $public_key # public_key 在服务端配置中不需要
                         }
                     }
