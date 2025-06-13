@@ -131,7 +131,7 @@ detect_init_system() { # ... (与版本12.1一致) ...
 # --- 依赖检查 ---
 check_dependencies() { # ... (与版本12.1一致，确保jq, curl, wget, tar, uuidgen等存在) ...
     info "开始检查依赖项..."
-    local dep_missing=0; local core_deps=("wget" "curl" "unzip" "grep" "jq" "tar")
+    local dep_missing=0; local core_deps=("wget" "curl" "unzip" "grep" "jq" "tar" "openssl")
     for dep in "${core_deps[@]}"; do if ! command -v "${dep}" >/dev/null 2>&1; then warn "核心依赖项 '${dep}' 未安装。"; dep_missing=$((dep_missing + 1)); fi; done
     if ! command -v uuidgen >/dev/null 2>&1 && [ ! -f /proc/sys/kernel/random/uuid ]; then
         warn "命令 'uuidgen' 未安装，且 '/proc/sys/kernel/random/uuid' 不可用。"; dep_missing=$((dep_missing + 1))
@@ -616,6 +616,7 @@ configure_sing_box() {
                 --arg reality_sni "${user_domain_sni}" \
                 --arg private_key "${reality_private_key}" \
                 --arg short_id "${reality_short_id}" \
+                --arg public_key "${reality_public_key}" \
                 '{
                     type: "vless", tag: "vless-reality-in", listen: "::", listen_port: $port,
                     users: [ { uuid: $uuid, flow: "xtls-rprx-vision" } ],
@@ -634,23 +635,29 @@ configure_sing_box() {
             ;;
         hysteria2)
         # Hysteria2 的 SNI 主要用于客户端链接和服务器TLS配置
+        # 生成自签名证书
+            openssl ecparam -genkey -name prime256v1 -out "${SB_CONFIG_DIR}/private.key"
+            openssl req -new -x509 -days 3650 -key "${SB_CONFIG_DIR}/private.key" -out "${SB_CONFIG_DIR}/cert.pem" -subj "/CN=bing.com"
             inbound_json_string=$(jq -n \
                 --argjson port "${sb_port}" \
                 --arg password "${hysteria2_password}" \
                 --argjson up_mbps "${hysteria2_up_mbps}" \
                 --argjson down_mbps "${hysteria2_down_mbps}" \
-                --arg sni "${user_domain_sni}" \
+                --arg pubkey "${SB_CONFIG_DIR}/cert.pem" \
+                --arg prikey "${SB_CONFIG_DIR}/private.key" \
                 '{
                     type: "hysteria2", tag: "hysteria2-in", listen: "::", listen_port: $port,
                     up_mbps: $up_mbps, down_mbps: $down_mbps,
                     obfs: { type: "salamander", password: $password },
                     tls: {
-                        enabled: true, # Hysteria2 总是使用类TLS加密
-                        # server_name: $sni, # 如果有真实域名和证书，在此处配置
-                        # certificate_path: "...", 
-                        # key_path: "..."
-                        # 若不配置证书，sing-box 会使用自签名证书，客户端通常需要设置 insecure: true
-                        alpn: ["h3"]
+                        "enabled": true,
+                        "alpn": [
+                            "h3"
+                        ],
+                        "min_version":"1.3",
+                        "max_version":"1.3",
+                        "certificate_path": "$pubkey",
+                        "key_path": "$prikey"
                     }
                 }')
             ;;
@@ -890,8 +897,8 @@ generate_output_links() {
         if [[ "${selected_protocol}" == "vless_reality_tcp_vision" || "${selected_protocol}" == "hysteria2" ]]; then
             if [[ "${force_cf_choice,,}" == "y" || "${force_cf_choice,,}" == "yes" ]]; then # 检查用户是否强制使用CF
                 warn "您选择了 ${selected_protocol} 并强制使用 Cloudflare Tunnel。链接将基于CF域名生成，但这可能不是最佳实践。"
-                 if [ -n "${cf_domain}" ]; then conn_address="${cf_domain}"; proxy_port="443"; conn_host_header="${cf_domain}"; conn_security="tls"; conn_sni="${cf_domain}"; link_remark+="_CF_${cf_domain}";
-                 else warn "CF Tunnel 已启用但域名未知。链接地址需手动修改。"; conn_address="YOUR_CF_DOMAIN"; proxy_port="443"; conn_host_header="YOUR_CF_DOMAIN"; conn_security="tls"; conn_sni="YOUR_CF_DOMAIN"; link_remark+="_CF_CheckDomain"; fi
+                if [ -n "${cf_domain}" ]; then conn_address="${cf_domain}"; proxy_port="443"; conn_host_header="${cf_domain}"; conn_security="tls"; conn_sni="${cf_domain}"; link_remark+="_CF_${cf_domain}";
+                else warn "CF Tunnel 已启用但域名未知。链接地址需手动修改。"; conn_address="YOUR_CF_DOMAIN"; proxy_port="443"; conn_host_header="YOUR_CF_DOMAIN"; conn_security="tls"; conn_sni="YOUR_CF_DOMAIN"; link_remark+="_CF_CheckDomain"; fi
             else # 用户未强制，则 Reality/Hysteria2 直连
                 conn_address="${user_domain}" # 此时 user_domain 应该是服务器IP
                 proxy_port="${sb_port}"
@@ -902,8 +909,8 @@ generate_output_links() {
                 link_remark+="_Direct_${conn_address}"
             fi
         else # 其他协议 (VMess-WS, VLESS-WS, Trojan-TCP-TLS, VLESS-TCP-TLS) 可以很好地配合 CF Tunnel
-             if [ -n "${cf_domain}" ]; then conn_address="${cf_domain}"; proxy_port="443"; conn_host_header="${cf_domain}"; conn_security="tls"; conn_sni="${cf_domain}"; link_remark+="_CF_${cf_domain}";
-             else warn "CF Tunnel 已启用但域名未知。链接地址需手动修改。"; conn_address="YOUR_CF_DOMAIN"; proxy_port="443"; conn_host_header="YOUR_CF_DOMAIN"; conn_security="tls"; conn_sni="YOUR_CF_DOMAIN"; link_remark+="_CF_CheckDomain"; fi
+            if [ -n "${cf_domain}" ]; then conn_address="${cf_domain}"; proxy_port="443"; conn_host_header="${cf_domain}"; conn_security="tls"; conn_sni="${cf_domain}"; link_remark+="_CF_${cf_domain}";
+            else warn "CF Tunnel 已启用但域名未知。链接地址需手动修改。"; conn_address="YOUR_CF_DOMAIN"; proxy_port="443"; conn_host_header="YOUR_CF_DOMAIN"; conn_security="tls"; conn_sni="YOUR_CF_DOMAIN"; link_remark+="_CF_CheckDomain"; fi
         fi
     else # 不使用 Cloudflare Tunnel (直连)
         conn_address="${user_domain}" # user_domain 在 get_common_config 中已设为IP或用户提供的域名
@@ -986,7 +993,7 @@ generate_output_links() {
     if [ "${cf_use_tunnel}" != "no" ] && ! [[ "${selected_protocol}" == "vless_reality_tcp_vision" || "${selected_protocol}" == "hysteria2" ]] || [[ "${force_cf_choice,,}" == "y" ]]; then
         echo -e "  Cloudflare 域名:  ${YELLOW}${cf_domain:- (请查看日志或Cloudflare仪表板)}${PLAIN}"
         if [ "${cf_use_tunnel}" = "temp" ] && [ -n "${cf_assigned_temp_domain}" ] && [[ "${cf_domain}" != "${cf_assigned_temp_domain}" ]]; then
-             echo -e "  (隧道实际分配域名可能为: ${YELLOW}${cf_assigned_temp_domain}${PLAIN})"
+            echo -e "  (隧道实际分配域名可能为: ${YELLOW}${cf_assigned_temp_domain}${PLAIN})"
         fi
     elif [[ "${selected_protocol}" == "vless_reality_tcp_vision" || "${selected_protocol}" == "hysteria2" ]]; then
         echo -e "  (当前协议通常直连，未使用 Cloudflare Tunnel 暴露)"
@@ -1052,15 +1059,15 @@ uninstall_package() {
             run_sudo rm -f "${CF_INSTALL_PATH}"
 
             if [ -d "${CF_CONFIG_DIR}" ]; then
-                 printf "${YELLOW}是否移除 cloudflared 配置文件目录 ${CF_CONFIG_DIR} (可能包含固定隧道的配置和凭据)? [y/N]: ${PLAIN}"
-                 read -r choice_cf_config
-                 if [[ "${choice_cf_config,,}" == "y" ]] || [[ "${choice_cf_config,,}" == "yes" ]]; then
+                printf "${YELLOW}是否移除 cloudflared 配置文件目录 ${CF_CONFIG_DIR} (可能包含固定隧道的配置和凭据)? [y/N]: ${PLAIN}"
+                read -r choice_cf_config
+                if [[ "${choice_cf_config,,}" == "y" ]] || [[ "${choice_cf_config,,}" == "yes" ]]; then
                     info "正在移除 cloudflared 配置目录: ${CF_CONFIG_DIR}"
                     run_sudo rm -rf "${CF_CONFIG_DIR}"
                     success "cloudflared 配置目录已移除。"
-                 else
+                else
                     info "保留 cloudflared 配置目录 ${CF_CONFIG_DIR}。"
-                 fi
+                fi
             fi
             info "Cloudflare Tunnel 卸载尝试完成。您可能还需要在 Cloudflare Dashboard 中手动清理隧道和DNS记录。"
         else
