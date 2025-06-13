@@ -763,16 +763,40 @@ install_sing_box() { # ... (与版本12.1一致，但注意 OpenRC 脚本中的 
     # 服务卸载和用户/组创建逻辑，根据init system调整
     if [[ "${detected_init_system}" == "openrc" ]]; then
         manage_service "uninstall" "${SB_SERVICE_NAME}" "${sb_openrc_script_path}" "${sb_openrc_confd_path}" &>/dev/null || true
-        if ! getent group "${SB_SERVICE_NAME}" >/dev/null; then run_sudo groupadd -r "${SB_SERVICE_NAME}" || warn "创建组 ${SB_SERVICE_NAME} 失败。"; fi
-        if ! getent passwd "${SB_SERVICE_NAME}" >/dev/null; then run_sudo useradd -r -g "${SB_SERVICE_NAME}" -d "${SB_CONFIG_DIR}" -s /sbin/nologin -c "${SB_SERVICE_NAME} service user" "${SB_SERVICE_NAME}" || warn "创建用户 ${SB_SERVICE_NAME} 失败。"; fi
+
+        # 判断系统可用命令并创建组
+        if ! getent group "${SB_SERVICE_NAME}" >/dev/null; then
+            if command -v groupadd &>/dev/null; then
+                run_sudo groupadd -r "${SB_SERVICE_NAME}" || warn "创建组 ${SB_SERVICE_NAME} 失败。"
+            elif command -v addgroup &>/dev/null; then
+                run_sudo addgroup -S "${SB_SERVICE_NAME}" || warn "创建组 ${SB_SERVICE_NAME} 失败。"
+            else
+                warn "无法创建组：未找到 groupadd 或 addgroup 命令。"
+            fi
+        fi
+
+        # 判断系统可用命令并创建用户
+        if ! getent passwd "${SB_SERVICE_NAME}" >/dev/null; then
+            if command -v useradd &>/dev/null; then
+                run_sudo useradd -r -g "${SB_SERVICE_NAME}" -d "${SB_CONFIG_DIR}" -s /sbin/nologin -c "${SB_SERVICE_NAME} service user" "${SB_SERVICE_NAME}" || warn "创建用户 ${SB_SERVICE_NAME} 失败。"
+            elif command -v adduser &>/dev/null; then
+                run_sudo adduser -S -H -D -G "${SB_SERVICE_NAME}" -s /sbin/nologin "${SB_SERVICE_NAME}" || warn "创建用户 ${SB_SERVICE_NAME} 失败。"
+            else
+                warn "无法创建用户：未找到 useradd 或 adduser 命令。"
+            fi
+        fi
+
         run_sudo chown -R "${SB_SERVICE_NAME}:${SB_SERVICE_NAME}" "${SB_CONFIG_DIR}"
+
     elif [[ "${detected_init_system}" == "systemd" ]]; then
-         manage_service "uninstall" "${SB_SERVICE_NAME}" # 清理脚本生成的单元文件
+        manage_service "uninstall" "${SB_SERVICE_NAME}"
+
     else # SysVinit 或 unknown
         if [[ "$(run_sudo "${SB_INSTALL_PATH}" help service uninstall 2>&1 || true)" != *"unknown command"* ]]; then
             run_sudo "${SB_INSTALL_PATH}" service -c "${SB_CONFIG_FILE}" uninstall &>/dev/null || true
         fi
     fi
+
     
     # 服务安装
     if [[ "${detected_init_system}" == "systemd" ]]; then
