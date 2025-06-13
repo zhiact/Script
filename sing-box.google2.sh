@@ -487,6 +487,7 @@ get_common_config() {
             read -r server_cert_path
             if [ ! -f "${server_cert_path}" ]; then 
                 # 生成自签名证书
+                run_sudo mkdir -p "${SB_CONFIG_DIR}"
                 server_key_path="${SB_CONFIG_DIR}/server_key.key"
                 server_cert_path="${SB_CONFIG_DIR}/server_cert.pem"
                 openssl ecparam -genkey -name prime256v1 -out "${server_key_path}"
@@ -1307,8 +1308,8 @@ main() {
     
     select_protocol                # 1. 用户选择协议
     get_common_config              # 2. 获取通用和协议特定参数
-    configure_sing_box             # 3. 根据选择和参数生成配置文件
-    install_sing_box_binary_only   # 4. 确保 sing-box 二进制文件已安装 (Reality keygen 可能需要)
+    install_sing_box_binary_only   # 3. 确保 sing-box 二进制文件已安装 (Reality keygen 可能需要)
+    configure_sing_box             # 4. 根据选择和参数生成配置文件
     install_sing_box_service_setup # 5. 设置并启动 sing-box 服务
     
     # Cloudflare Tunnel (如果选择)
