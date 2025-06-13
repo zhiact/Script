@@ -487,6 +487,8 @@ get_common_config() {
             read -r server_cert_path
             if [ ! -f "${server_cert_path}" ]; then 
                 # 生成自签名证书
+                server_key_path="${SB_CONFIG_DIR}/server_key.key"
+                server_cert_path="${SB_CONFIG_DIR}/server_cert.pem"
                 openssl ecparam -genkey -name prime256v1 -out "${server_key_path}"
                 openssl req -new -x509 -days 3650 -key "${server_key_path}" -out "${server_cert_path}" -subj "/CN=bing.com"
             else
