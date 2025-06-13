@@ -459,7 +459,7 @@ get_common_config() {
             user_domain="${server_ip_address}" # 链接中用IP
             printf "${YELLOW}请输入 Reality Handshake SNI/目标服务器域名 (例如: www.microsoft.com): ${PLAIN}"
             read -r reality_dest_domain_input
-            if [ -z "${reality_dest_domain_input}" ]; reality_dest_domain_input="www.microsoft.com"; fi
+            if [ -z "${reality_dest_domain_input}" ];then reality_dest_domain_input="www.microsoft.com";fi
             user_domain_sni="${reality_dest_domain_input}" # 用于SNI欺骗
             info "Reality SNI 将设置为: ${user_domain_sni}"
             ;;
