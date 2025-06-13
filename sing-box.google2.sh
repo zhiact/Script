@@ -142,7 +142,7 @@ check_dependencies() { # ... (与版本12.1一致，确保jq, curl, wget, tar, u
     if [ "${detected_os}" = "linux" ] && [ "${detected_init_system}" = "openrc" ] && command -v apk >/dev/null 2>&1 && ! apk info -e libc6-compat >/dev/null 2>&1; then
         warn "当前为 Alpine Linux，建议安装 'libc6-compat' 增强兼容性 (sudo apk add libc6-compat)。";
     fi
-    wget --no-check-certificate --continue -qO $TMP_DIR/qrencode ${GH_PROXY}https://github.com/zhiact/Script/raw/main/qrencode-go/qrencode-go-linux-$detected_arch >/dev/null 2>&1 && run_sudo chmod +x $TMP_DIR/qrencode >/dev/null 2>&1
+    wget --no-check-certificate --continue -qO $TMP_DIR/qrencode https://github.com/zhiact/Script/raw/main/qrencode-go/qrencode-go-linux-$detected_arch >/dev/null 2>&1 && run_sudo chmod +x $TMP_DIR/qrencode >/dev/null 2>&1
 s
     success "所有核心依赖项检查完毕。"
 }
