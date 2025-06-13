@@ -656,8 +656,8 @@ configure_sing_box() {
                         ],
                         "min_version":"1.3",
                         "max_version":"1.3",
-                        "certificate_path": "$pubkey",
-                        "key_path": "$prikey"
+                        "certificate_path": $pubkey,
+                        "key_path": $prikey
                     }
                 }')
             ;;
