@@ -681,7 +681,6 @@ configure_sing_box() {
                 '{
                     type: "trojan", tag: "trojan-in", listen: "::", listen_port: $port,
                     users: [ { password: $password } ],
-                    transport: { type: "tcp" }, # Trojan 默认基于 TCP
                     tls: {
                         enabled: true,
                         server_name: $domain,
@@ -699,7 +698,6 @@ configure_sing_box() {
                 '{
                     type: "vless", tag: "vless-tls-in", listen: "::", listen_port: $port,
                     users: [ { uuid: $uuid, flow: "" } ], # 可选 flow: "xtls-rprx-vision"
-                    transport: { type: "tcp" }, # VLESS over TCP
                     tls: {
                         enabled: true,
                         server_name: $domain,
