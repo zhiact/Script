@@ -485,10 +485,17 @@ get_common_config() {
 
             printf "${YELLOW}请输入 TLS 证书 (.pem 或 .crt) 文件的完整路径: ${PLAIN}"
             read -r server_cert_path
-            if [ ! -f "${server_cert_path}" ]; then error_exit "证书文件路径无效: ${server_cert_path}"; fi
-            printf "${YELLOW}请输入 TLS 私钥 (.key) 文件的完整路径: ${PLAIN}"
-            read -r server_key_path
-            if [ ! -f "${server_key_path}" ]; then error_exit "私钥文件路径无效: ${server_key_path}"; fi
+            if [ ! -f "${server_cert_path}" ]; then 
+                # 生成自签名证书
+                openssl ecparam -genkey -name prime256v1 -out "${server_key_path}"
+                openssl req -new -x509 -days 3650 -key "${server_key_path}" -out "${server_cert_path}" -subj "/CN=bing.com"
+            else
+                printf "${YELLOW}请输入 TLS 私钥 (.key) 文件的完整路径: ${PLAIN}"
+                read -r server_key_path
+                if [ ! -f "${server_key_path}" ]; 
+                    then error_exit "私钥文件路径无效: ${server_key_path}"; 
+                fi
+            fi
 
             if [[ "${selected_protocol}" == "trojan_tcp_tls" ]]; then
                 printf "${YELLOW}请输入 Trojan 密码: ${PLAIN}"
