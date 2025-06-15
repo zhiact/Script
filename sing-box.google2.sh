@@ -364,16 +364,29 @@ EOF
             warn "初始化系统为 '${detected_init_system}'，自动服务管理支持有限。"
             warn "请参考相应文档手动配置 '${service_name}' 服务。"
             case "$action" in
-                install|enable|start) info "请确保 '${binary_path}' 已正确安装并手动配置为服务。" ;;
+                install|enable|start) 
+                    info "请确保 '${binary_path}' 已正确安装并手动配置为服务。" 
+                    local log_file="/var/log/${service_name}.log"
+                    local err_file="/var/log/${service_name}.err"
+                    info "使用 nohup 后台启动 ${service_name}，日志输出到 ${log_file}，错误输出到 ${err_file}"
+
+                    run_sudo nohup "${binary_path}" > "${log_file}" 2> "${err_file}" &
+                    sleep 1
+                    if pgrep -f "${binary_path}" >/dev/null; then
+                        success "服务 '${service_name}' 已通过 nohup 后台运行。"
+                    else
+                        error_exit "服务 '${service_name}' 启动失败，请检查 ${log_file} 和 ${err_file}。"
+                    fi
+                    ;;
                 uninstall|disable|stop) info "请手动停止并移除 '${service_name}' 服务。" ;;
                 status)
                     info "请手动检查 '${service_name}' 服务状态。"
                     if pgrep -f "${binary_path}" >/dev/null; then
-                         success "检测到 '${service_name}' 进程正在运行 (基于 pgrep)。"
-                         return 0
+                        success "检测到 '${service_name}' 进程正在运行 (基于 pgrep)。"
+                        return 0
                     else
-                         warn "未通过 pgrep 检测到 '${service_name}' 进程。"
-                         return 1
+                        warn "未通过 pgrep 检测到 '${service_name}' 进程。"
+                        return 1
                     fi
                     ;;
                 *) error_exit "不支持的操作: ${action} 对于 ${detected_init_system}" ;;
@@ -383,14 +396,14 @@ EOF
                 if [[ "${service_name}" == "${SB_SERVICE_NAME}" ]]; then
                     run_sudo "${binary_path}" service -c "${SB_CONFIG_FILE}" install || warn "Sing-box service install 命令可能失败或不适用。"
                 elif [[ "${service_name}" == "${CF_SERVICE_NAME}" ]] && [ -n "${cf_tunnel_token}" ]; then
-                     run_sudo "${binary_path}" service install "${cf_tunnel_token}" || warn "Cloudflared service install 命令可能失败或不适用。"
+                    run_sudo "${binary_path}" service install "${cf_tunnel_token}" || warn "Cloudflared service install 命令可能失败或不适用。"
                 fi
             elif [[ "$action" == "uninstall" ]] && [[ "$(${binary_path} help service uninstall 2>&1 || true)" != *"unknown command"* ]]; then
                 info "尝试使用 '${binary_path} service uninstall'..."
-                 if [[ "${service_name}" == "${SB_SERVICE_NAME}" ]]; then
+                if [[ "${service_name}" == "${SB_SERVICE_NAME}" ]]; then
                     run_sudo "${binary_path}" service -c "${SB_CONFIG_FILE}" uninstall &>/dev/null || true
                 elif [[ "${service_name}" == "${CF_SERVICE_NAME}" ]]; then
-                     run_sudo "${binary_path}" service uninstall &>/dev/null || true
+                    run_sudo "${binary_path}" service uninstall &>/dev/null || true
                 fi
             fi
             ;;
