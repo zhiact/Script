@@ -386,7 +386,7 @@ EOF
                         fi
                     fi
 
-                    run_sudo nohup "${binary_path} ${cmd_args}" > "${log_file}" 2> "${err_file}" &
+                    run_sudo nohup "${binary_path}" ${cmd_args} > "${log_file}" 2> "${err_file}" &
                     sleep 1
                     if pgrep -f "${binary_path}" >/dev/null; then
                         success "服务 '${service_name}' 已通过 nohup 后台运行。"
