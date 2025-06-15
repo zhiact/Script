@@ -121,7 +121,10 @@ run_sudo() { # ... (与版本12.1一致) ...
 
 # --- 初始化系统检测 ---
 detect_init_system() { # ... (与版本12.1一致) ...
+    init_comm="$(cat /proc/1/comm 2>/dev/null || true)"
     if [ -d /run/systemd/system ] && command -v systemctl &>/dev/null; then detected_init_system="systemd";
+    elif echo "$init_comm" | grep -q "^systemctl$"; then
+        detected_init_system="systemd"
     elif command -v rc-service &>/dev/null && command -v rc-update &>/dev/null; then detected_init_system="openrc";
     elif [ -f /etc/init.d/cron ] && [ ! -d /run/systemd/system ]; then detected_init_system="sysvinit";
     else detected_init_system="unknown"; warn "未能明确识别初始化系统。服务管理可能受限。"; fi
