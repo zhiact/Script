@@ -369,8 +369,24 @@ EOF
                     local log_file="/var/log/${service_name}.log"
                     local err_file="/var/log/${service_name}.err"
                     info "使用 nohup 后台启动 ${service_name}，日志输出到 ${log_file}，错误输出到 ${err_file}"
+                    local cmd_args=""
 
-                    run_sudo nohup "${service_bin} ${cmd_args}" > "${log_file}" 2> "${err_file}" &
+                    if [[ "${service_name}" == "${SB_SERVICE_NAME}" ]]; then
+                        cmd_args="-D ${SB_CONFIG_DIR} run"
+                        # shellcheck disable=SC2001 # awk aytacını temizlemek için sed kullanılıyor
+                        if [[ "$(run_sudo "${binary_path}" version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' | head -n1 | sed 's/\([0-9]*\.[0-9]*\).*/\1/')" < "1.9" ]]; then
+                            cmd_args="run -c ${SB_CONFIG_FILE}"
+                        fi
+                    elif [[ "${service_name}" == "${CF_SERVICE_NAME}" ]]; then
+                        if [ "${cf_use_tunnel}" = "fixed" ]; then
+                            cmd_args="tunnel run" # 固定隧道的OpenRC脚本通常更复杂，依赖config.yml
+                        else
+                            info "Cloudflared 临时隧道不由 OpenRC 服务管理。"
+                            return 0
+                        fi
+                    fi
+
+                    run_sudo nohup "${binary_path} ${cmd_args}" > "${log_file}" 2> "${err_file}" &
                     sleep 1
                     if pgrep -f "${binary_path}" >/dev/null; then
                         success "服务 '${service_name}' 已通过 nohup 后台运行。"
