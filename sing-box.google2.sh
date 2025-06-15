@@ -752,8 +752,8 @@ configure_sing_box() {
             \"log\": { \"level\": \"info\", \"timestamp\": true, \"output\": \$log_file },
             \"dns\": { \"servers\": [ {\"address\": \"8.8.8.8\",\"detour\": \"direct\"}, {\"address\": \"1.1.1.1\",\"detour\": \"direct\"} ] },
             \"inbounds\": [ \$inbound_config ],
-            \"outbounds\": [{"type": "direct","tag": "direct"}],
-            \"route\": {"rules": []}
+            \"outbounds\": [{\"type\": \"direct\",\"tag\": \"direct\"}],
+            \"route\": {\"rules\": []}
         }' > '${SB_CONFIG_FILE}'"; then
         error_exit "生成 sing-box 配置文件 (${SB_CONFIG_FILE}) 失败。"
     fi
