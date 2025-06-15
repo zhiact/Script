@@ -750,8 +750,10 @@ configure_sing_box() {
         --argjson inbound_config '${inbound_json_string}' \
         '{
             \"log\": { \"level\": \"info\", \"timestamp\": true, \"output\": \$log_file },
-            \"dns\": { \"servers\": [ {\"address\": \"8.8.8.8\"}, {\"address\": \"1.1.1.1\"} ] },
-            \"inbounds\": [ \$inbound_config ]
+            \"dns\": { \"servers\": [ {\"address\": \"8.8.8.8\",\"detour\": \"direct\"}, {\"address\": \"1.1.1.1\",\"detour\": \"direct\"} ] },
+            \"inbounds\": [ \$inbound_config ],
+            \"outbounds\": [{"type": "direct","tag": "direct"}],
+            \"route\": {"rules": []}
         }' > '${SB_CONFIG_FILE}'"; then
         error_exit "生成 sing-box 配置文件 (${SB_CONFIG_FILE}) 失败。"
     fi
@@ -904,11 +906,19 @@ configure_cloudflare_tunnel() { # ... (与版本12.1基本一致) ...
     echo "  2. 是，固定隧道 (需要 Token)"
     echo "  3. 否，不使用"
     local choice; while true; do printf "${YELLOW}选择 [1-3] (默认: 3): ${PLAIN}"; read -r choice; choice=${choice:-3}; case "$choice" in 1) cf_use_tunnel="temp"; break ;; 2) cf_use_tunnel="fixed"; break ;; 3) cf_use_tunnel="no"; break ;; *) warn "无效选择。" ;; esac; done
-    if [ "${cf_use_tunnel}" = "fixed" ]; then printf "${YELLOW}输入 Cloudflare Tunnel Token: ${PLAIN}"; read -rs cf_tunnel_token; echo; if [ -z "${cf_tunnel_token}" ]; then error_exit "Token 不能为空。"; fi; fi
-    if [ "${cf_use_tunnel}" = "temp" ] || [ "${cf_use_tunnel}" = "fixed" ]; then
+    if [ "${cf_use_tunnel}" = "fixed" ]; then 
+        printf "${YELLOW}输入 Cloudflare Tunnel Token: ${PLAIN}"; 
+        read -rs cf_tunnel_token; echo; 
+        if [ -z "${cf_tunnel_token}" ]; then 
+            error_exit "Token 不能为空。";
+        fi; 
         printf "${YELLOW}输入用于 Cloudflare Tunnel 的域名 (例如 my.domain.com): ${PLAIN}"; read -r cf_domain
-        if [ -z "${cf_domain}" ]; then if [ "${cf_use_tunnel}" = "fixed" ]; then error_exit "固定隧道域名不能为空。"; else info "临时隧道将尝试分配随机域名。"; cf_domain=""; fi
-        elif ! echo "${cf_domain}" | grep -Eq '^([a-zA-Z0-9](-?[a-zA-Z0-9])*\.)+[a-zA-Z]{2,}$' && [ "${#cf_domain}" -le 253 ]; then error_exit "域名格式无效。"; fi
+        if [ -z "${cf_domain}" ]; then 
+            error_exit "固定隧道域名不能为空。";    
+        fi
+        if ! echo "${cf_domain}" | grep -Eq '^([a-zA-Z0-9](-?[a-zA-Z0-9])*\.)+[a-zA-Z]{2,}$' && [ "${#cf_domain}" -le 253 ]; then 
+            error_exit "域名格式无效。"; 
+        fi
         if [ -n "${cf_domain}" ]; then info "CF Tunnel 将用域名: ${cf_domain}"; fi
     fi
     success "Cloudflare Tunnel 配置选项已设定。"
