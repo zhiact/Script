@@ -370,7 +370,7 @@ EOF
                     local err_file="/var/log/${service_name}.err"
                     info "使用 nohup 后台启动 ${service_name}，日志输出到 ${log_file}，错误输出到 ${err_file}"
 
-                    run_sudo nohup "${binary_path}" > "${log_file}" 2> "${err_file}" &
+                    run_sudo nohup "${service_bin} ${cmd_args}" > "${log_file}" 2> "${err_file}" &
                     sleep 1
                     if pgrep -f "${binary_path}" >/dev/null; then
                         success "服务 '${service_name}' 已通过 nohup 后台运行。"
