@@ -1033,6 +1033,11 @@ generate_output_links() {
     fi
     
     # shellcheck disable=SC2046 # jq @uri 需要这种方式
+    local input_remark
+    printf "${YELLOW}输入别名：(默认${link_remark})"
+    read -r input_remark
+    link_remark=${input_remark:-${link_remark}}
+
     local encoded_remark=$(echo -n "${link_remark}" | jq -sRr @uri)
 
     case "${selected_protocol}" in
